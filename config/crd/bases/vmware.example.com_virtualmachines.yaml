@@ -13,10 +13,31 @@ spec:
     kind: VirtualMachine
     listKind: VirtualMachineList
     plural: virtualmachines
+    shortNames:
+    - vm
     singular: virtualmachine
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .spec.cpu
+      name: CPU
+      type: integer
+    - jsonPath: .spec.memory
+      name: Memory
+      type: integer
+    - jsonPath: .spec.template
+      name: Template
+      type: string
+    - jsonPath: .status.moRefID
+      name: MoRefId
+      type: string
+    - jsonPath: .status.lastMessage
+      name: Last_Message
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: VirtualMachine is the Schema for the virtualmachines API
@@ -36,13 +57,40 @@ spec:
           spec:
             description: VirtualMachineSpec defines the desired state of VirtualMachine
             properties:
-              foo:
-                description: Foo is an example field of VirtualMachine. Edit virtualmachine_types.go
-                  to remove/update
+              cpu:
+                format: int32
+                maximum: 4
+                minimum: 1
+                type: integer
+              datacenter:
                 type: string
+              memory:
+                format: int32
+                maximum: 8
+                minimum: 1
+                type: integer
+              resourcePool:
+                type: string
+              template:
+                type: string
+            required:
+            - cpu
+            - datacenter
+            - memory
+            - resourcePool
+            - template
             type: object
           status:
             description: VirtualMachineStatus defines the observed state of VirtualMachine
+            properties:
+              moRefID:
+                type: string
+              name:
+                type: string
+              phase:
+                type: string
+            required:
+            - phase
             type: object
         type: object
     served: true

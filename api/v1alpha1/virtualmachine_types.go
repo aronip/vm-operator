@@ -25,21 +25,46 @@ import (
 
 // VirtualMachineSpec defines the desired state of VirtualMachine
 type VirtualMachineSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of VirtualMachine. Edit virtualmachine_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=4
+	CPU int32 `json:"cpu"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=8
+	Memory int32 `json:"memory"`
+	// +kubebuilder:validation:Required
+	Template string `json:"template"`
+	// +kubebuilder:validation:Required
+	ResourcePool string `json:"resourcePool"`
+	// +kubebuilder:validation:Required
+	Datacenter string `json:"datacenter"`
 }
+
+type StatusPhase string
+
+const (
+	RunningStatusPhase StatusPhase = "RUNNING"
+	PendingStatusPhase StatusPhase = "PENDING"
+	ErrorStatusPhase   StatusPhase = "ERROR"
+)
 
 // VirtualMachineStatus defines the observed state of VirtualMachine
 type VirtualMachineStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Phase   StatusPhase `json:"phase"`
+	Name    string      `json:"name,omitempty"`
+	MoRefID string      `json:"moRefID,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+// +kubebuilder:resource:shortName={"vm"}
+// +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="CPU",type=integer,JSONPath=`.spec.cpu`
+// +kubebuilder:printcolumn:name="Memory",type=integer,JSONPath=`.spec.memory`
+// +kubebuilder:printcolumn:name="Template",type=string,JSONPath=`.spec.template`
+// +kubebuilder:printcolumn:name="MoRefId",type=string,JSONPath=`.status.moRefID`
+// +kubebuilder:printcolumn:name="Last_Message",type=string,JSONPath=`.status.lastMessage`
 
 // VirtualMachine is the Schema for the virtualmachines API
 type VirtualMachine struct {
