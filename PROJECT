@@ -3,4 +3,14 @@ layout:
 - go.kubebuilder.io/v3
 projectName: vm-operator
 repo: example.com/vm-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: example.com
+  group: vmware
+  kind: VirtualMachine
+  path: example.com/vm-operator/api/v1alpha1
+  version: v1alpha1
 version: "3"
