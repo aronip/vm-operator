@@ -37,8 +37,6 @@ type VirtualMachineSpec struct {
 	Template string `json:"template"`
 	// +kubebuilder:validation:Required
 	ResourcePool string `json:"resourcePool"`
-	// +kubebuilder:validation:Required
-	Datacenter string `json:"datacenter"`
 }
 
 type StatusPhase string
@@ -51,9 +49,10 @@ const (
 
 // VirtualMachineStatus defines the observed state of VirtualMachine
 type VirtualMachineStatus struct {
-	Phase   StatusPhase `json:"phase"`
-	Name    string      `json:"name,omitempty"`
-	MoRefID string      `json:"moRefID,omitempty"`
+	Phase       StatusPhase `json:"phase"`
+	Name        string      `json:"name,omitempty"`
+	MoRefID     string      `json:"moRefID,omitempty"`
+	LastMessage string      `json:"lastMessage,omitempty"`
 }
 
 //+kubebuilder:object:root=true

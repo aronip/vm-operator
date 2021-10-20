@@ -17,13 +17,20 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
+	"fmt"
+	"net/url"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/find"
+	"github.com/vmware/govmomi/vim25/soap"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -78,9 +85,34 @@ func main() {
 		os.Exit(1)
 	}
 
+	vCenterURL := os.Getenv("VC_HOST")
+	vcUser := os.Getenv("VC_USER")
+	vcPass := os.Getenv("VC_PASS")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	vc, err := newClient(ctx, vCenterURL, vcUser, vcPass, true)
+	if err != nil {
+		setupLog.Error(err, "could not connect to vCenter", "controller", "VmGroup")
+		os.Exit(1)
+	}
+
+	finder := find.NewFinder(vc.Client)
+
+	dc, err := finder.DefaultDatacenter(ctx)
+	if err != nil {
+		setupLog.Error(err, "could not get default datacenter")
+		os.Exit(1)
+	}
+	finder = finder.SetDatacenter(dc)
+
 	if err = (&controllers.VirtualMachineReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log,
+		Finder: finder,
+		VC:     vc,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualMachine")
 		os.Exit(1)
@@ -101,4 +133,23 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func newClient(ctx context.Context, vc, user, pass string, insecure bool) (*govmomi.Client, error) {
+	u, err := soap.ParseURL(vc)
+	if u == nil {
+		return nil, errors.New("could not parse URL (environment variables set?)")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("could not parse vCenter client URL: %v", err)
+	}
+
+	u.User = url.UserPassword(user, pass)
+	c, err := govmomi.NewClient(ctx, u, insecure)
+	if err != nil {
+		return nil, fmt.Errorf("could not get vCenter client: %v", err)
+	}
+
+	return c, nil
 }

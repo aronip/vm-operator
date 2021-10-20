@@ -62,8 +62,6 @@ spec:
                 maximum: 4
                 minimum: 1
                 type: integer
-              datacenter:
-                type: string
               memory:
                 format: int32
                 maximum: 8
@@ -75,7 +73,6 @@ spec:
                 type: string
             required:
             - cpu
-            - datacenter
             - memory
             - resourcePool
             - template
@@ -83,6 +80,8 @@ spec:
           status:
             description: VirtualMachineStatus defines the observed state of VirtualMachine
             properties:
+              lastMessage:
+                type: string
               moRefID:
                 type: string
               name:

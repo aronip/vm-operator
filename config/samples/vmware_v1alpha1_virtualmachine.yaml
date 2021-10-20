@@ -3,5 +3,7 @@ kind: VirtualMachine
 metadata:
   name: virtualmachine-sample
 spec:
-  # Add fields here
-  foo: bar
+  cpu: 1
+  memory: 1
+  template: "templatename"
+  resourcePool: "resourcepoolname"

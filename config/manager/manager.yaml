@@ -52,5 +52,25 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+        env:
+          - name: VC_USER
+            valueFrom:
+              secretKeyRef:
+                name: vc-creds
+                key: VC_USER
+          - name: VC_PASS
+            valueFrom:
+              secretKeyRef:
+                name: vc-creds
+                key: VC_PASS
+          - name: VC_HOST
+            valueFrom:
+              secretKeyRef:
+                name: vc-creds
+                key: VC_HOST
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+        - name: vc-creds
+          secret:
+            secretName: vc-creds
