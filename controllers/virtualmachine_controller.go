@@ -112,6 +112,11 @@ func (r *VirtualMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
+	if virtualMachine.Status.Phase == "" {
+		virtualMachine.Status = createStatus(vmwarev1alpha1.PendingStatusPhase, "initialized", nil, virtualMachine.Name, nil)
+		return ctrl.Result{}, errors.Wrap(r.Client.Status().Update(ctx, virtualMachine), "could not update status")
+	}
+
 	// Check if VM exists.
 	vmRef, err := findVM(ctx, virtualMachine, log, r.VC)
 	if err != nil {
@@ -124,7 +129,7 @@ func (r *VirtualMachineReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// VM exists in vCenter. See if it needs to be reconfigured.
-	return r.reconcilePowerState(ctx, vmRef, *virtualMachine)
+	return r.reconcileVMProperties(ctx, vmRef, *virtualMachine)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -139,6 +144,7 @@ func (r *VirtualMachineReconciler) reconcileCreateVM(
 	finder *find.Finder,
 	name string,
 	virtualMachine vmwarev1alpha1.VirtualMachine) (ctrl.Result, error) {
+	r.Log.Info("creating VM")
 	err := createVM(ctx, finder, name, virtualMachine)
 	if err != nil {
 		msg := "could not create VM in vCenter"
@@ -151,12 +157,13 @@ func (r *VirtualMachineReconciler) reconcileCreateVM(
 	return ctrl.Result{}, errors.Wrap(r.Client.Status().Update(ctx, &virtualMachine), "could not update status")
 }
 
-func (r *VirtualMachineReconciler) reconcilePowerState(
+func (r *VirtualMachineReconciler) reconcileVMProperties(
 	ctx context.Context,
 	vmRef types.ManagedObjectReference,
 	virtualMachine vmwarev1alpha1.VirtualMachine) (ctrl.Result, error) {
 
 	// Check if VM needs to be reconfigured.
+	r.Log.Info("reconfiguring VM if needed")
 	err := reconfigureVM(ctx, r.VC, vmRef, &virtualMachine)
 	if err != nil {
 		msg := "could not reconfigure VM in vCenter"
@@ -165,7 +172,7 @@ func (r *VirtualMachineReconciler) reconcilePowerState(
 	}
 
 	// Check if VM needs to be powered on.
-	err = powerOnVM(ctx, r.VC, vmRef)
+	err = powerOnVM(ctx, r.VC, vmRef, r.Log)
 	if err != nil {
 		msg := "could not power on VM in vCenter"
 		virtualMachine.Status = createStatus(vmwarev1alpha1.ErrorStatusPhase, msg, err, virtualMachine.Name, nil)
@@ -196,13 +203,14 @@ func reconfigureVM(ctx context.Context, VC *govmomi.Client, vmRef types.ManagedO
 	return nil
 }
 
-func powerOnVM(ctx context.Context, VC *govmomi.Client, vmRef types.ManagedObjectReference) error {
+func powerOnVM(ctx context.Context, VC *govmomi.Client, vmRef types.ManagedObjectReference, logger logr.Logger) error {
 	obj := object.NewVirtualMachine(VC.Client, vmRef)
 	powerState, err := obj.PowerState(ctx)
 	if err != nil {
 		return err
 	}
 	if powerState != types.VirtualMachinePowerStatePoweredOn {
+		logger.Info("powering on the vm")
 		task, err := obj.PowerOn(ctx)
 		if err != nil {
 			return errors.Wrap(err, "could not initiate power on task")
@@ -213,6 +221,8 @@ func powerOnVM(ctx context.Context, VC *govmomi.Client, vmRef types.ManagedObjec
 			return errors.Wrapf(err, "could not power on %q", obj.Name())
 		}
 	}
+
+	logger.Info("vm is in powered on state")
 
 	return nil
 }
@@ -362,6 +372,7 @@ func (r *VirtualMachineReconciler) deleteExternalResources(ctx context.Context, 
 		}
 	}
 
+	r.Log.Info("powering off the vm")
 	// Power off the VM and destroy the VM.
 	err = powerOffVM(ctx, r.VC, vmRef)
 	if err != nil {
@@ -370,12 +381,14 @@ func (r *VirtualMachineReconciler) deleteExternalResources(ctx context.Context, 
 		return errors.Wrap(r.Client.Status().Update(ctx, vm), "could not update status")
 	}
 
+	r.Log.Info("destroying the vm")
 	err = destroyVM(ctx, r.VC, vmRef)
 	if err != nil {
 		msg := "could not destroy VM in vCenter"
 		vm.Status = createStatus(vmwarev1alpha1.ErrorStatusPhase, msg, err, vm.Name, nil)
 		return errors.Wrap(r.Client.Status().Update(ctx, vm), "could not update status")
 	}
+	r.Log.Info("vm deleted successfully")
 
 	vm.Status = createStatus(vmwarev1alpha1.RunningStatusPhase, successMessage, nil, vm.Name, &vmRef.Value)
 	return errors.Wrap(r.Client.Status().Update(ctx, vm), "could not update status")
